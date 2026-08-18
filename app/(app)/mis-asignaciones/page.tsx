@@ -1,0 +1,9 @@
+"use client"
+import Link from "next/link"
+import { useSigia } from "@/lib/store"
+import { PageHeader } from "@/components/page-header"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { PriorityBadge, StatusBadge } from "@/components/status-badges"
+import { Button } from "@/components/ui/button"
+export default function Page(){const {incidents,currentUser}=useSigia(); const rows=incidents.filter(i=>i.assignee===currentUser?.name&&!["cerrada","resuelta"].includes(i.status)); return <div className="space-y-6"><PageHeader title="Mis asignaciones" description="Incidencias que requieren tu atención."/><div className="grid gap-4 md:grid-cols-4"><K t="Asignadas a mí" v={rows.length}/><K t="Críticas" v={rows.filter(i=>i.priority==="critica").length}/><K t="En progreso" v={rows.filter(i=>i.status==="en_progreso").length}/><K t="SLA vencido" v={rows.filter(i=>i.slaBreached).length}/></div><Card><CardHeader><CardTitle>Cola de trabajo</CardTitle></CardHeader><CardContent className="space-y-3">{rows.length?rows.map(i=><div key={i.id} className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="flex gap-2"><span className="font-mono text-xs text-muted-foreground">{i.id}</span><PriorityBadge priority={i.priority}/><StatusBadge status={i.status}/></div><p className="mt-2 font-medium">{i.title}</p><p className="text-sm text-muted-foreground">{i.department} · {i.category}</p></div><Button nativeButton={false} render={<Link href={`/incidencias/${i.id}`}/>}>Abrir</Button></div>):<p className="text-sm text-muted-foreground">No tienes incidencias pendientes.</p>}</CardContent></Card></div>}
+function K({t,v}:{t:string,v:number}){return <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">{t}</p><p className="text-3xl font-semibold">{v}</p></CardContent></Card>}

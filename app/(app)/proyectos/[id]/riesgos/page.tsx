@@ -1,0 +1,61 @@
+"use client"
+import * as React from "react"
+import { useParams,useRouter } from "next/navigation"
+import { ArrowLeft,Plus,ShieldAlert,TriangleAlert,ShieldCheck,CircleCheck,Pencil,Trash2 } from "lucide-react"
+import { toast } from "sonner"
+import { supabase } from "@/lib/supabase"
+import { useSigia } from "@/lib/store"
+import { PageHeader } from "@/components/page-header"
+import { Card,CardContent,CardHeader,CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from "@/components/ui/select"
+import { Table,TableBody,TableCell,TableHead,TableHeader,TableRow } from "@/components/ui/table"
+
+type Risk={id:string;project_id:string;code:string;title:string;description:string|null;probability:"baja"|"media"|"alta";impact:"bajo"|"medio"|"alto"|"critico";level:"bajo"|"medio"|"alto"|"critico";status:"abierto"|"mitigando"|"mitigado"|"cerrado";owner_id:string|null;owner_name:string|null;mitigation:string|null;contingency:string|null;identified_at:string;due_date:string|null;closed_at:string|null}
+type Project={id:string;code:string;name:string}
+type Form={id:string|null;code:string;title:string;description:string;probability:Risk["probability"];impact:Risk["impact"];status:Risk["status"];ownerId:string;mitigation:string;contingency:string;identifiedAt:string;dueDate:string}
+const empty=():Form=>({id:null,code:"",title:"",description:"",probability:"media",impact:"medio",status:"abierto",ownerId:"",mitigation:"",contingency:"",identifiedAt:new Date().toISOString().slice(0,10),dueDate:""})
+function level(p:Risk["probability"],i:Risk["impact"]):Risk["level"]{const a={baja:1,media:2,alta:3}[p],b={bajo:1,medio:2,alto:3,critico:4}[i],s=a*b;return s>=10?"critico":s>=6?"alto":s>=3?"medio":"bajo"}
+function lab(v:string){return({baja:"Baja",media:"Media",alta:"Alta",bajo:"Bajo",medio:"Medio",alto:"Alto",critico:"Crítico",abierto:"Abierto",mitigando:"Mitigando",mitigado:"Mitigado",cerrado:"Cerrado"} as Record<string,string>)[v]??v}
+function date(v:string|null){return v?new Intl.DateTimeFormat("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"}).format(new Date(`${v}T12:00:00`)):"—"}
+
+export default function RiesgosProyectoPage(){
+ const params=useParams<{id:string}>(),router=useRouter(),{currentUser,users}=useSigia()
+ const [project,setProject]=React.useState<Project|null>(null),[risks,setRisks]=React.useState<Risk[]>([]),[loading,setLoading]=React.useState(true),[saving,setSaving]=React.useState(false),[show,setShow]=React.useState(false),[form,setForm]=React.useState<Form>(empty())
+ const active=users.filter(u=>u.status==="activo")
+ const load=React.useCallback(async()=>{if(!params.id)return;setLoading(true);try{const[{data:p,error:pe},{data:r,error:re}]=await Promise.all([supabase.from("projects").select("id,code,name").eq("id",params.id).single(),supabase.from("project_risks").select("*").eq("project_id",params.id).order("created_at",{ascending:false})]);if(pe)throw pe;if(re)throw re;setProject(p as Project);setRisks((r||[]) as Risk[])}catch(e:any){toast.error(e?.message||"No se pudieron cargar los riesgos.")}finally{setLoading(false)}},[params.id])
+ React.useEffect(()=>{load();const c=supabase.channel(`risks-${params.id}`).on("postgres_changes",{event:"*",schema:"public",table:"project_risks",filter:`project_id=eq.${params.id}`},()=>load()).subscribe();return()=>{supabase.removeChannel(c)}},[params.id,load])
+ const newRisk=()=>{const f=empty();f.code=`R-${String(risks.length+1).padStart(3,"0")}`;setForm(f);setShow(true)}
+ const edit=(r:Risk)=>{setForm({id:r.id,code:r.code,title:r.title,description:r.description||"",probability:r.probability,impact:r.impact,status:r.status,ownerId:r.owner_id||"",mitigation:r.mitigation||"",contingency:r.contingency||"",identifiedAt:r.identified_at,dueDate:r.due_date||""});setShow(true)}
+ const save=async(e:React.FormEvent)=>{e.preventDefault();if(!form.code.trim()||!form.title.trim())return toast.error("Código y riesgo son obligatorios.");setSaving(true);try{const u=active.find(x=>x.id===form.ownerId);const payload={project_id:params.id,code:form.code.trim().toUpperCase(),title:form.title.trim(),description:form.description.trim()||null,probability:form.probability,impact:form.impact,level:level(form.probability,form.impact),status:form.status,owner_id:form.ownerId||null,owner_name:u?.name||null,mitigation:form.mitigation.trim()||null,contingency:form.contingency.trim()||null,identified_at:form.identifiedAt,due_date:form.dueDate||null,closed_at:form.status==="cerrado"?new Date().toISOString().slice(0,10):null};if(form.id){const{error}=await supabase.from("project_risks").update(payload).eq("id",form.id);if(error)throw error}else{const{data:{user}}=await supabase.auth.getUser();if(!user)throw Error("Sesión no válida");const{error}=await supabase.from("project_risks").insert({...payload,created_by:user.id});if(error)throw error}toast.success(form.id?"Riesgo actualizado":"Riesgo creado");setShow(false);setForm(empty());await load()}catch(e:any){toast.error(e?.message||"No se pudo guardar el riesgo.")}finally{setSaving(false)}}
+ const del=async(r:Risk)=>{if(!confirm(`¿Eliminar ${r.code} - ${r.title}?`))return;const{error}=await supabase.from("project_risks").delete().eq("id",r.id);if(error)return toast.error(error.message);toast.success("Riesgo eliminado");await load()}
+ if(loading)return <Card><CardContent className="py-16 text-center">Cargando riesgos...</CardContent></Card>
+ if(!project)return <Card><CardContent className="py-16 text-center">Proyecto no encontrado.</CardContent></Card>
+ const opened=risks.filter(r=>r.status==="abierto").length,critical=risks.filter(r=>r.level==="critico"&&r.status!=="cerrado").length,mit=risks.filter(r=>r.status==="mitigando").length,closed=risks.filter(r=>r.status==="cerrado").length
+ return <div className="space-y-6">
+  <Button variant="ghost" onClick={()=>router.push(`/proyectos/${project.id}`)}><ArrowLeft className="mr-2 size-4"/>Volver al proyecto</Button>
+  <div className="flex flex-wrap items-end justify-between gap-4"><PageHeader title={`Riesgos · ${project.name}`} description="Registro, evaluación, mitigación y seguimiento de riesgos del proyecto."/>
+   {currentUser?.role!=="usuario"&&<Button onClick={newRisk}><Plus className="mr-2 size-4"/>Nuevo riesgo</Button>}
+  </div>
+  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><K i={<ShieldAlert className="size-4"/>} t="Abiertos" v={opened}/><K i={<TriangleAlert className="size-4"/>} t="Críticos activos" v={critical}/><K i={<ShieldCheck className="size-4"/>} t="Mitigando" v={mit}/><K i={<CircleCheck className="size-4"/>} t="Cerrados" v={closed}/></div>
+  {show&&<Card><CardHeader><CardTitle>{form.id?"Editar riesgo":"Nuevo riesgo"}</CardTitle></CardHeader><CardContent><form onSubmit={save} className="space-y-5">
+   <div className="grid gap-4 md:grid-cols-2"><F t="Código"><Input value={form.code} onChange={e=>setForm(f=>({...f,code:e.target.value}))}/></F><F t="Riesgo"><Input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))}/></F></div>
+   <F t="Descripción"><Textarea rows={3} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))}/></F>
+   <div className="grid gap-4 md:grid-cols-3"><F t="Probabilidad"><Select value={form.probability} onValueChange={v=>v&&setForm(f=>({...f,probability:v as Risk["probability"]}))}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="baja">Baja</SelectItem><SelectItem value="media">Media</SelectItem><SelectItem value="alta">Alta</SelectItem></SelectContent></Select></F>
+   <F t="Impacto"><Select value={form.impact} onValueChange={v=>v&&setForm(f=>({...f,impact:v as Risk["impact"]}))}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="bajo">Bajo</SelectItem><SelectItem value="medio">Medio</SelectItem><SelectItem value="alto">Alto</SelectItem><SelectItem value="critico">Crítico</SelectItem></SelectContent></Select></F>
+   <F t="Nivel calculado"><div className="flex h-9 items-center"><Badge variant="outline">{lab(level(form.probability,form.impact))}</Badge></div></F></div>
+   <div className="grid gap-4 md:grid-cols-2"><F t="Estado"><Select value={form.status} onValueChange={v=>v&&setForm(f=>({...f,status:v as Risk["status"]}))}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="abierto">Abierto</SelectItem><SelectItem value="mitigando">Mitigando</SelectItem><SelectItem value="mitigado">Mitigado</SelectItem><SelectItem value="cerrado">Cerrado</SelectItem></SelectContent></Select></F>
+   <F t="Responsable"><Select value={form.ownerId} onValueChange={v=>setForm(f=>({...f,ownerId:v||""}))}><SelectTrigger><SelectValue placeholder="Sin asignar"/></SelectTrigger><SelectContent>{active.map(u=><SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent></Select></F></div>
+   <div className="grid gap-4 md:grid-cols-2"><F t="Fecha identificación"><Input type="date" value={form.identifiedAt} onChange={e=>setForm(f=>({...f,identifiedAt:e.target.value}))}/></F><F t="Fecha compromiso"><Input type="date" value={form.dueDate} onChange={e=>setForm(f=>({...f,dueDate:e.target.value}))}/></F></div>
+   <F t="Plan de mitigación"><Textarea rows={3} value={form.mitigation} onChange={e=>setForm(f=>({...f,mitigation:e.target.value}))}/></F><F t="Plan de contingencia"><Textarea rows={3} value={form.contingency} onChange={e=>setForm(f=>({...f,contingency:e.target.value}))}/></F>
+   <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={()=>{setShow(false);setForm(empty())}}>Cancelar</Button><Button type="submit" disabled={saving}>{saving?"Guardando...":form.id?"Guardar cambios":"Crear riesgo"}</Button></div>
+  </form></CardContent></Card>}
+  <Card><CardHeader><CardTitle>Matriz de riesgos</CardTitle><p className="text-sm text-muted-foreground">Probabilidad × impacto determina automáticamente el nivel.</p></CardHeader><CardContent>{!risks.length?<div className="py-14 text-center text-muted-foreground"><ShieldAlert className="mx-auto mb-3 size-9"/><p>Aún no hay riesgos registrados.</p></div>:<div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Código</TableHead><TableHead>Riesgo</TableHead><TableHead>Prob.</TableHead><TableHead>Impacto</TableHead><TableHead>Nivel</TableHead><TableHead>Responsable</TableHead><TableHead>Estado</TableHead><TableHead>Compromiso</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader><TableBody>{risks.map(r=><TableRow key={r.id}><TableCell className="font-mono text-xs">{r.code}</TableCell><TableCell className="min-w-[260px]"><b>{r.title}</b>{r.mitigation&&<p className="line-clamp-1 text-xs text-muted-foreground">Mitigación: {r.mitigation}</p>}</TableCell><TableCell>{lab(r.probability)}</TableCell><TableCell>{lab(r.impact)}</TableCell><TableCell><Badge variant="outline">{lab(r.level)}</Badge></TableCell><TableCell>{r.owner_name||"Sin asignar"}</TableCell><TableCell><Badge variant="secondary">{lab(r.status)}</Badge></TableCell><TableCell>{date(r.due_date)}</TableCell><TableCell><div className="flex gap-1">{currentUser?.role!=="usuario"&&<Button size="icon" variant="ghost" onClick={()=>edit(r)}><Pencil className="size-4"/></Button>}{currentUser?.role==="administrador"&&<Button size="icon" variant="ghost" onClick={()=>del(r)}><Trash2 className="size-4"/></Button>}</div></TableCell></TableRow>)}</TableBody></Table></div>}</CardContent></Card>
+ </div>
+}
+function F({t,children}:{t:string;children:React.ReactNode}){return <div className="space-y-2"><Label>{t}</Label>{children}</div>}
+function K({i,t,v}:{i:React.ReactNode;t:string;v:number}){return <div className="rounded-lg border p-4"><div className="flex justify-between"><p className="text-xs text-muted-foreground">{t}</p><span className="text-muted-foreground">{i}</span></div><p className="mt-1 text-xl font-semibold">{v}</p></div>}
