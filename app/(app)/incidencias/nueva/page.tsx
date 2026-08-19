@@ -346,7 +346,7 @@ export default function NuevaIncidenciaPage() {
                 className={[
                   "group relative overflow-hidden rounded-2xl border p-3.5 transition-all duration-300",
                   suggestions.length > 0
-                    ? "border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent shadow-[0_0_30px_-14px_hsl(var(--primary))]"
+                    ? "border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent shadow-[0_0_24px_-16px_hsl(var(--primary))]"
                     : "bg-muted/20",
                 ].join(" ")}
               >
@@ -360,24 +360,46 @@ export default function NuevaIncidenciaPage() {
                 <div className="relative flex flex-wrap items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
                     <div
-                      className="
-                        relative flex size-10 shrink-0 items-center justify-center
-                        rounded-xl
-                        bg-amber-100 text-amber-600 ring-1 ring-amber-300
-                        shadow-[0_0_20px_-6px_rgb(245_158_11_/_0.75)]
-                        dark:bg-amber-400/15 dark:text-amber-400
-                        dark:ring-amber-400/40
-                        dark:shadow-[0_0_26px_-5px_rgb(245_158_11_/_0.70)]
-                        transition-all duration-300 group-hover:scale-110
-                      "
-                    >
+  className="
+    relative flex size-10 shrink-0 items-center justify-center
+    rounded-xl
+
+    bg-amber-100
+    text-amber-600
+    ring-1 ring-amber-300
+    shadow-[0_0_20px_-6px_rgb(245_158_11_/_0.75)]
+
+    dark:bg-amber-400/15
+    dark:text-amber-400
+    dark:ring-amber-400/40
+    dark:shadow-[0_0_26px_-5px_rgb(245_158_11_/_0.70)]
+
+    transition-all duration-300
+    group-hover:scale-110
+  "
+>
                       {suggestions.length > 0 && (
                         <>
-                          <span className="absolute inset-0 rounded-xl bg-amber-300/35 dark:bg-amber-400/25 animate-[sigiaPulse_1.8s_ease-in-out_infinite]" />
-                          <span className="absolute -inset-1 rounded-xl border border-amber-400/50 dark:border-amber-400/40 animate-[sigiaRing_2.2s_ease-out_infinite]" />
-                          <span className="pointer-events-none absolute -left-3 top-0 h-full w-3 rotate-12 bg-white/50 dark:bg-white/30 blur-sm animate-[sigiaShine_2.8s_ease-in-out_infinite]" />
+<span
+  className="
+    absolute inset-0 rounded-xl
+    bg-amber-300/35
+    dark:bg-amber-400/25
+    animate-[sigiaPulse_1.8s_ease-in-out_infinite]
+  "
+/>
+<span
+  className="
+    absolute -inset-1 rounded-xl border
+    border-amber-400/50
+    dark:border-amber-400/40
+    animate-[sigiaRing_2.2s_ease-out_infinite]
+  "
+/>
+                          <span className="pointer-events-none absolute -left-3 top-0 h-full w-3 rotate-12 bg-white/30 blur-sm animate-[sigiaShine_2.8s_ease-in-out_infinite]" />
                         </>
                       )}
+
                       <Lightbulb
                         className={[
                           "relative z-10 size-5",
@@ -394,8 +416,8 @@ export default function NuevaIncidenciaPage() {
                           {searching
                             ? "SIG-IA está buscando coincidencias..."
                             : suggestions.length > 0
-                            ? `SIG-IA encontró ${suggestions.length} ${suggestions.length === 1 ? "coincidencia" : "coincidencias"}`
-                            : "SIG-IA no encontró coincidencias altas"}
+                              ? `SIG-IA encontró ${suggestions.length} ${suggestions.length === 1 ? "coincidencia" : "coincidencias"}`
+                              : "SIG-IA no encontró coincidencias altas"}
                         </p>
 
                         {suggestions.length > 0 && suggestions[0].similarity_percent >= 85 && (

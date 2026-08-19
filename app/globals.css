@@ -3,6 +3,8 @@
 @import 'shadcn/tailwind.css';
 
 @custom-variant dark (&:is(.dark *));
+
+
 @keyframes sigiaIdea {
   0%,
   100% {
@@ -76,6 +78,7 @@
     opacity: 0;
   }
 }
+
 @theme inline {
   --font-sans: 'Geist', 'Geist Fallback';
   --font-mono: 'Geist Mono', 'Geist Mono Fallback';

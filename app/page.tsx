@@ -1,6 +1,7 @@
 import { LoginForm } from "@/components/login-form"
 import { ShieldCheck, Sparkles, Timer, BarChart3 } from "lucide-react"
 
+
 const HIGHLIGHTS = [
   { icon: Sparkles, title: "Clasificación con IA", desc: "SIGIA AI sugiere categoría, prioridad y solución en segundos." },
   { icon: Timer, title: "Control de SLA", desc: "Monitorea el cumplimiento y anticipa vencimientos críticos." },
@@ -52,7 +53,7 @@ export default function LoginPage() {
         <div className="relative flex items-center gap-2 text-sm font-medium">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-foreground/10 px-3 py-1 ring-1 ring-inset ring-primary-foreground/20">
             <span className="size-1.5 rounded-full bg-primary-foreground" />
-            Plataforma interna de TI
+            Plataforma de TI
           </span>
         </div>
 
