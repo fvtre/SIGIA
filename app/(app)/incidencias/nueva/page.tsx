@@ -359,11 +359,33 @@ export default function NuevaIncidenciaPage() {
 
                 <div className="relative flex flex-wrap items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="relative flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary ring-1 ring-primary/20 transition-transform duration-300 group-hover:scale-105">
+                    <div
+                      className="
+                        relative flex size-10 shrink-0 items-center justify-center
+                        rounded-xl
+                        bg-amber-100 text-amber-600 ring-1 ring-amber-300
+                        shadow-[0_0_20px_-6px_rgb(245_158_11_/_0.75)]
+                        dark:bg-amber-400/15 dark:text-amber-400
+                        dark:ring-amber-400/40
+                        dark:shadow-[0_0_26px_-5px_rgb(245_158_11_/_0.70)]
+                        transition-all duration-300 group-hover:scale-110
+                      "
+                    >
                       {suggestions.length > 0 && (
-                        <span className="absolute inset-0 rounded-xl bg-primary/20 animate-ping opacity-20" />
+                        <>
+                          <span className="absolute inset-0 rounded-xl bg-amber-300/35 dark:bg-amber-400/25 animate-[sigiaPulse_1.8s_ease-in-out_infinite]" />
+                          <span className="absolute -inset-1 rounded-xl border border-amber-400/50 dark:border-amber-400/40 animate-[sigiaRing_2.2s_ease-out_infinite]" />
+                          <span className="pointer-events-none absolute -left-3 top-0 h-full w-3 rotate-12 bg-white/50 dark:bg-white/30 blur-sm animate-[sigiaShine_2.8s_ease-in-out_infinite]" />
+                        </>
                       )}
-                      <Lightbulb className="relative z-10 size-5" />
+                      <Lightbulb
+                        className={[
+                          "relative z-10 size-5",
+                          suggestions.length > 0
+                            ? "animate-[sigiaIdea_1.7s_ease-in-out_infinite]"
+                            : "",
+                        ].join(" ")}
+                      />
                     </div>
 
                     <div className="min-w-0">
