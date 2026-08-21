@@ -360,7 +360,7 @@ export default function NuevaIncidenciaPage() {
                 <div className="relative flex flex-wrap items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
                     <div
-  className="
+                      className="
     relative flex size-10 shrink-0 items-center justify-center
     rounded-xl
 
@@ -377,25 +377,25 @@ export default function NuevaIncidenciaPage() {
     transition-all duration-300
     group-hover:scale-110
   "
->
+                    >
                       {suggestions.length > 0 && (
                         <>
-<span
-  className="
+                          <span
+                            className="
     absolute inset-0 rounded-xl
     bg-amber-300/35
     dark:bg-amber-400/25
     animate-[sigiaPulse_1.8s_ease-in-out_infinite]
   "
-/>
-<span
-  className="
+                          />
+                          <span
+                            className="
     absolute -inset-1 rounded-xl border
     border-amber-400/50
     dark:border-amber-400/40
     animate-[sigiaRing_2.2s_ease-out_infinite]
   "
-/>
+                          />
                           <span className="pointer-events-none absolute -left-3 top-0 h-full w-3 rotate-12 bg-white/30 blur-sm animate-[sigiaShine_2.8s_ease-in-out_infinite]" />
                         </>
                       )}

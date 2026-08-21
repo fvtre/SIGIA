@@ -350,6 +350,15 @@ export default function Page() {
         }
     }
 
+    // ============================================
+    // DETECTAR ARTÍCULOS GENERADOS POR SIG-IA
+    // ============================================
+    function isSigiaGenerated(article: KbArticle) {
+        return article.notes
+            ?.toLowerCase()
+            .includes("generado automáticamente por sig-ia")
+    }
+
     return (
         <div className="space-y-6">
             <PageHeader
@@ -485,8 +494,20 @@ export default function Page() {
                                             </button>
                                         )}
 
-                                        <Badge variant="outline">{article.category}</Badge>
-                                    </div>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <Badge variant="outline">
+                                                {article.category}
+                                            </Badge>
+
+                                            {isSigiaGenerated(article) && (
+                                                <Badge
+                                                    variant="secondary"
+                                                    className="border border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-300"
+                                                >
+                                                    ✨ Generado por SIG-IA
+                                                </Badge>
+                                            )}
+                                        </div>                                    </div>
 
                                     <Badge variant={article.published ? "default" : "secondary"}>
                                         {article.published ? "Publicado" : "Borrador"}
@@ -740,8 +761,19 @@ export default function Page() {
                     <div className="mx-auto my-6 max-w-3xl rounded-xl border bg-background shadow-xl">
                         <div className="flex items-start justify-between border-b p-5">
                             <div className="space-y-2">
-                                <div className="flex flex-wrap gap-2">
-                                    <Badge variant="outline">{selected.category}</Badge>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <Badge variant="outline">
+                                        {selected.category}
+                                    </Badge>
+
+                                    {isSigiaGenerated(selected) && (
+                                        <Badge
+                                            variant="secondary"
+                                            className="border border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-300"
+                                        >
+                                            ✨ Generado por SIG-IA
+                                        </Badge>
+                                    )}
 
                                     <Badge variant={selected.published ? "default" : "secondary"}>
                                         {selected.published ? "Publicado" : "Borrador"}

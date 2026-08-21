@@ -133,8 +133,218 @@ export function SigiaProvider({ children }: { children: React.ReactNode }) {
     return () => { authData.subscription.unsubscribe(); supabase.removeChannel(realtime) }
   }, [refresh])
   const addIncident = React.useCallback(async (data: NewIncident) => { const { data: { user } } = await supabase.auth.getUser(); if (!user) throw new Error("Sesión no válida"); let assignedId: string | null = null; if (data.assignee) assignedId = users.find(u => u.name === data.assignee)?.id || null; const hours = data.priority === "critica" ? 4 : data.priority === "alta" ? 8 : data.priority === "media" ? 24 : 72; const now = new Date(); const payload = { module: data.category, title: data.title, description: data.description, origin: data.origin || "Operación", occurred_at: data.occurredAt || now.toISOString(), reason: data.reason || null, strategy: data.strategy || null, follow_up: data.followUp || null, department: data.department, related_areas: data.relatedAreas || [], system_product: data.systemProduct || null, responsible_name: data.responsibleName || null, external_dependency: !!data.externalDependency, external_provider: data.externalProvider || null, priority: data.priority, status: data.status || (assignedId ? "asignada" : "nueva"), assigned_to: assignedId, requester_name: data.requester || null, location: data.location, sla_due_at: new Date(now.getTime() + hours * 3600000).toISOString(), source: "sigia", created_by: user.id }; const { data: row, error } = await supabase.from("incidents").insert(payload).select().single(); if (error) throw error; await supabase.from("incident_history").insert({ incident_id: row.id, actor_id: user.id, action: `Incidencia ${row.code} creada` }); await refresh(); return mapIncident(row) }, [users, refresh])
-  const updateIncident = React.useCallback(async (id: string, patch: Partial<Incident>, note?: string) => { const row = incidents.find(i => i.id === id); if (!row) return; const { data: db } = await supabase.from("incidents").select("id").eq("code", id).single(); if (!db) return; const p: any = {}; if (patch.status) p.status = patch.status; if (patch.priority) p.priority = patch.priority; if ("assignee" in patch) p.assigned_to = patch.assignee ? users.find(u => u.name === patch.assignee)?.id || null : null; if (patch.title) p.title = patch.title; if (patch.description !== undefined) p.description = patch.description; if (patch.department !== undefined) p.department = patch.department; if (patch.relatedAreas !== undefined) p.related_areas = patch.relatedAreas; if (patch.systemProduct !== undefined) p.system_product = patch.systemProduct; if (patch.responsibleName !== undefined) p.responsible_name = patch.responsibleName; if (patch.externalDependency !== undefined) p.external_dependency = patch.externalDependency; if (patch.externalProvider !== undefined) p.external_provider = patch.externalProvider; if (patch.category !== undefined) p.module = patch.category; if (patch.origin !== undefined) p.origin = patch.origin; if (patch.reason !== undefined) p.reason = patch.reason; if (patch.strategy !== undefined) p.strategy = patch.strategy; if (patch.followUp !== undefined) p.follow_up = patch.followUp; if (patch.requester !== undefined) p.requester_name = patch.requester; if (patch.location !== undefined) p.location = patch.location; const { error } = await supabase.from("incidents").update(p).eq("id", db.id); if (error) throw error; if (note) { const { data: { user } } = await supabase.auth.getUser(); if (user) await supabase.from("incident_history").insert({ incident_id: db.id, actor_id: user.id, action: note }) } await refresh() }, [incidents, users, refresh])
+  const updateIncident = React.useCallback(
+    async (id: string, patch: Partial<Incident>, note?: string) => {
+      const row = incidents.find((i) => i.id === id)
+      if (!row) return
 
+      const { data: db, error: findError } = await supabase
+        .from("incidents")
+        .select("id")
+        .eq("code", id)
+        .single()
+
+      if (findError) throw findError
+      if (!db) return
+
+      const p: any = {}
+
+      if (patch.status) p.status = patch.status
+      if (patch.priority) p.priority = patch.priority
+
+      if ("assignee" in patch) {
+        p.assigned_to = patch.assignee
+          ? users.find((u) => u.name === patch.assignee)?.id || null
+          : null
+      }
+
+      if (patch.title !== undefined) p.title = patch.title
+      if (patch.description !== undefined) p.description = patch.description
+      if (patch.department !== undefined) p.department = patch.department
+      if (patch.relatedAreas !== undefined) p.related_areas = patch.relatedAreas
+      if (patch.systemProduct !== undefined) p.system_product = patch.systemProduct
+      if (patch.responsibleName !== undefined) p.responsible_name = patch.responsibleName
+      if (patch.externalDependency !== undefined) p.external_dependency = patch.externalDependency
+      if (patch.externalProvider !== undefined) p.external_provider = patch.externalProvider
+      if (patch.category !== undefined) p.module = patch.category
+      if (patch.origin !== undefined) p.origin = patch.origin
+      if (patch.reason !== undefined) p.reason = patch.reason
+      if (patch.strategy !== undefined) p.strategy = patch.strategy
+      if (patch.followUp !== undefined) p.follow_up = patch.followUp
+      if (patch.requester !== undefined) p.requester_name = patch.requester
+      if (patch.location !== undefined) p.location = patch.location
+
+      const { error } = await supabase
+        .from("incidents")
+        .update(p)
+        .eq("id", db.id)
+
+      if (error) throw error
+
+      // =====================================================
+      // HISTORIAL
+      // =====================================================
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (note && user) {
+        await supabase.from("incident_history").insert({
+          incident_id: db.id,
+          actor_id: user.id,
+          action: note,
+        })
+      }
+
+      // =====================================================
+      // SIG-IA · BASE DE CONOCIMIENTO AUTOMÁTICA
+      // =====================================================
+
+      const wasResolved = ["resuelta", "cerrada"].includes(row.status)
+
+      const becomesResolved =
+        patch.status !== undefined &&
+        ["resuelta", "cerrada"].includes(patch.status)
+
+      // Solo se ejecuta cuando la incidencia cruza por primera vez
+      // desde un estado abierto hacia Resuelta/Cerrada.
+      if (!wasResolved && becomesResolved) {
+        try {
+          console.log(`🤖 SIG-IA documentando ${row.id}...`)
+
+          // Construimos la versión actualizada de la incidencia.
+          // Así SIG-IA recibe también los cambios realizados
+          // justo antes de marcarla como resuelta.
+          const incidentForAI = {
+            ...row,
+            ...patch,
+          }
+
+          // 1. Pedir a SIG-IA que genere el artículo
+          const aiResponse = await fetch("/api/ai/generate-knowledge", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              incident: incidentForAI,
+            }),
+          })
+
+          if (!aiResponse.ok) {
+            const errorText = await aiResponse.text()
+
+            throw new Error(
+              `SIG-IA respondió ${aiResponse.status}: ${errorText}`
+            )
+          }
+
+          const aiResult = await aiResponse.json()
+          const article = aiResult?.article
+
+          if (!article) {
+            throw new Error(
+              "SIG-IA no devolvió un artículo válido"
+            )
+          }
+
+          // 2. Revisar si esta incidencia ya tiene artículo.
+          // Usamos el código INxxx dentro de notes como referencia.
+          const { data: existingArticle, error: existingError } =
+            await supabase
+              .from("knowledge_articles")
+              .select("id")
+              .ilike("notes", `%${row.id}%`)
+              .limit(1)
+              .maybeSingle()
+
+          if (existingError) {
+            console.error(
+              "Error verificando artículo existente:",
+              existingError
+            )
+          }
+
+          // 3. Crear borrador solamente si todavía no existe.
+          if (!existingArticle) {
+            const {
+              data: { user },
+            } = await supabase.auth.getUser()
+
+            if (!user) {
+              throw new Error(
+                "No existe una sesión válida para crear el artículo"
+              )
+            }
+
+            const { error: insertError } = await supabase
+              .from("knowledge_articles")
+              .insert({
+                title: article.title,
+                category: article.category,
+
+                problem: article.problem,
+                symptoms: article.symptoms,
+                causes: article.causes,
+                procedure: article.procedure,
+                validation: article.validation,
+
+                notes: [
+                  article.notes,
+                  "",
+                  `Generado automáticamente por SIG-IA desde ${row.id}`,
+                ]
+                  .filter(Boolean)
+                  .join("\n"),
+
+                published: false,
+                author_id: user.id,
+              })
+
+            if (insertError) {
+              throw insertError
+            }
+
+            console.log(
+              `📚 SIG-IA creó borrador de conocimiento para ${row.id}`
+            )
+          } else {
+            console.log(
+              `📚 ${row.id} ya posee un artículo de conocimiento`
+            )
+          }
+        } catch (kbError) {
+          // MUY IMPORTANTE:
+          // una falla de IA NO debe impedir resolver la incidencia.
+          console.error(
+            "SIG-IA no pudo generar el artículo automáticamente:",
+            kbError
+          )
+
+          // Fallback:
+          // conservamos tu sincronización tradicional.
+          try {
+            await supabase.rpc(
+              "sync_knowledge_from_resolved_incidents"
+            )
+
+            console.log(
+              "📚 Se utilizó sincronización tradicional como respaldo"
+            )
+          } catch (fallbackError) {
+            console.error(
+              "También falló la sincronización de respaldo:",
+              fallbackError
+            )
+          }
+        }
+      }
+
+      await refresh()
+    },
+    [incidents, users, refresh]
+  )
   const deleteIncident = React.useCallback(async (id: string) => { const { data: db, error: findError } = await supabase.from("incidents").select("id").eq("code", id).single(); if (findError) throw findError; const { error } = await supabase.from("incidents").delete().eq("id", db.id); if (error) throw error; await refresh() }, [refresh])
   const addComment = React.useCallback(async (id: string, content: string) => { const { data: { user } } = await supabase.auth.getUser(); if (!user) throw new Error("Sesión no válida"); const { data: db } = await supabase.from("incidents").select("id").eq("code", id).single(); if (!db) return; const { error } = await supabase.from("incident_comments").insert({ incident_id: db.id, author_id: user.id, body: content }); if (error) throw error; await refresh() }, [refresh])
   const addUser = React.useCallback(async () => { throw new Error("Por seguridad, la cuenta debe registrarse desde la pantalla de acceso") }, [])

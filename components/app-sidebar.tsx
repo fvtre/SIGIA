@@ -16,6 +16,8 @@ import {
   Database,
   FolderKanban,
   GanttChartSquare,
+  History,
+  Bell,
 } from "lucide-react"
 
 import {
@@ -38,6 +40,7 @@ const mainNav = [
   { title: "Incidencias", href: "/incidencias", icon: Ticket, badge: undefined },
   { title: "Nueva incidencia", href: "/incidencias/nueva", icon: PlusCircle },
   { title: "Mis asignaciones", href: "/mis-asignaciones", icon: ClipboardList, badge: undefined },
+  { title: "Centro de Alertas", href: "/alertas", icon: Bell },
 ]
 
 const projectsNav = [
@@ -54,6 +57,7 @@ const knowledgeNav = [
 const adminNav = [
   { title: "Usuarios", href: "/usuarios", icon: Users },
   { title: "Importar datos", href: "/importar", icon: Database },
+  { title: "Auditoría", href: "/auditoria", icon: History },
   { title: "Configuración", href: "/configuracion", icon: Settings },
 ]
 

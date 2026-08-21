@@ -16,8 +16,20 @@ import { formatDateTime, slaRemaining } from "@/lib/format"
 import { useRouter } from "next/navigation"
 
 export function IncidentDetail({ incident }: { incident: Incident }) {
-    const router = useRouter(); const { updateIncident, deleteIncident, addComment, users, currentUser } = useSigia(); const [comment, setComment] = React.useState(""); const [editing, setEditing] = React.useState(false); const [edit, setEdit] = React.useState({ title: incident.title, origin: incident.origin || "Operación", reason: incident.reason || "", strategy: incident.strategy || "", followUp: incident.followUp || "", department: incident.department, category: incident.category, systemProduct: incident.systemProduct || "", requester: incident.requester || "", location: incident.location || "" })
+    const router = useRouter(); const { updateIncident, deleteIncident, addComment, users, currentUser, articles } = useSigia(); const [comment, setComment] = React.useState(""); const [editing, setEditing] = React.useState(false); const [edit, setEdit] = React.useState({ title: incident.title, origin: incident.origin || "Operación", reason: incident.reason || "", strategy: incident.strategy || "", followUp: incident.followUp || "", department: incident.department, category: incident.category, systemProduct: incident.systemProduct || "", requester: incident.requester || "", location: incident.location || "" })
     const techs = users.filter(u => u.role === "tecnico" || u.role === "administrador"); const sla = slaRemaining(incident.slaDueAt, incident.slaBreached)
+
+    const knowledgeArticle = React.useMemo(
+        () =>
+            articles.find((article) =>
+                article.notes
+                    ?.toLowerCase()
+                    .includes(incident.id.toLowerCase())
+            ) || null,
+        [articles, incident.id]
+    )
+
+    const hasKnowledge = !!knowledgeArticle
     const patchStatus = async (v: string) => { try { await updateIncident(incident.id, { status: v as Status }, `Estado cambiado a ${STATUSES.find(s => s.value === v)?.label}`); toast.success("Estado actualizado") } catch (e: any) { toast.error(e.message) } }
     const patchPriority = async (v: string) => { try { await updateIncident(incident.id, { priority: v as Priority }, `Prioridad cambiada a ${PRIORITIES.find(p => p.value === v)?.label}`); toast.success("Prioridad actualizada") } catch (e: any) { toast.error(e.message) } }
     const send = async () => { if (!comment.trim()) return; try { await addComment(incident.id, comment.trim()); setComment(""); toast.success("Comentario publicado") } catch (e: any) { toast.error(e.message) } }
@@ -39,7 +51,7 @@ export function IncidentDetail({ incident }: { incident: Incident }) {
     return <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <div className="flex flex-col gap-6">
             <Card><CardHeader><div className="flex flex-wrap items-center justify-between gap-3"><div className="flex flex-wrap items-center gap-2"><span className="font-mono text-sm text-muted-foreground">{incident.id}</span><PriorityBadge priority={incident.priority} /><StatusBadge status={incident.status} /></div><div className="flex flex-wrap gap-2">
-                {(incident.status === "resuelta" || incident.status === "cerrada") && (
+                {(incident.status === "resuelta" || incident.status === "cerrada") && !hasKnowledge && (
                     <Button
                         size="sm"
                         variant="outline"
@@ -47,6 +59,21 @@ export function IncidentDetail({ incident }: { incident: Incident }) {
                     >
                         <BookOpen className="size-4" />
                         Crear artículo
+                    </Button>
+                )}
+
+                {hasKnowledge && (
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                            router.push(
+                                `/base-conocimiento?openArticle=${knowledgeArticle?.id}`
+                            )
+                        }
+                    >
+                        <Sparkles className="size-4 text-violet-500" />
+                        Ver conocimiento
                     </Button>
                 )}
 
@@ -123,9 +150,73 @@ export function IncidentDetail({ incident }: { incident: Incident }) {
                 <Info icon={User} label="Solicitante" value={incident.requester || "No informado"} />{incident.responsibleName ? <Info icon={User} label="Responsable operativo" value={incident.responsibleName} /> : null}{incident.origin ? <Info icon={Tag} label="Origen" value={incident.origin} /> : null}<Info icon={Building2} label="Departamento principal" value={incident.department} />{incident.relatedAreas?.length ? <Info icon={Building2} label="Áreas relacionadas" value={incident.relatedAreas.join(", ")} /> : null}{incident.systemProduct ? <Info icon={Tag} label="Sistema / Producto" value={incident.systemProduct} /> : null}{incident.externalDependency ? <Info icon={Tag} label="Dependencia externa" value={incident.externalProvider || "Sí"} /> : null}<Info icon={Tag} label="Categoría" value={incident.category} /><Info icon={MapPin} label="Ubicación" value={incident.location || "No informada"} /><Info icon={Clock} label="SLA" value={sla.label} />
                 <div className="grid gap-1 border-t pt-4 text-xs text-muted-foreground"><span>Creada: {formatDateTime(incident.createdAt)}</span><span>Actualizada: {formatDateTime(incident.updatedAt)}</span></div>
             </CardContent></Card>
+            {hasKnowledge && knowledgeArticle && (
+                <Card className="overflow-hidden border-violet-500/20 bg-gradient-to-br from-violet-500/10 via-background to-background">
+                    <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-300">
+                                    <Sparkles className="size-5" />
+                                </div>
+
+                                <div>
+                                    <CardTitle className="text-base">
+                                        SIG-IA · Conocimiento generado
+                                    </CardTitle>
+
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        Esta incidencia ya generó documentación reutilizable.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <span
+                                className={[
+                                    "rounded-full px-2 py-1 text-[10px] font-semibold",
+                                    knowledgeArticle.published
+                                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+                                        : "bg-amber-500/10 text-amber-600 dark:text-amber-300",
+                                ].join(" ")}
+                            >
+                                {knowledgeArticle.published ? "Publicado" : "Borrador"}
+                            </span>
+                        </div>
+                    </CardHeader>
+
+                    <CardContent className="space-y-3">
+                        <div className="rounded-xl border bg-background/70 p-3">
+                            <p className="text-xs text-muted-foreground">
+                                Artículo asociado
+                            </p>
+
+                            <p className="mt-1 line-clamp-2 text-sm font-medium">
+                                {knowledgeArticle.title}
+                            </p>
+                        </div>
+
+                        <Button
+                            variant="outline"
+                            className="w-full justify-between"
+                            onClick={() =>
+                                router.push(
+                                    `/base-conocimiento?openArticle=${knowledgeArticle.id}`
+                                )
+                            }
+                        >
+                            <span className="flex items-center gap-2">
+                                <BookOpen className="size-4" />
+                                Ver en Base de conocimiento
+                            </span>
+
+                            <Sparkles className="size-4 text-violet-500" />
+                        </Button>
+                    </CardContent>
+                </Card>
+            )}
+
             <AiCard incident={incident} />
         </div>
     </div>
 }
 function Info({ icon: Icon, label, value }: { icon: any, label: string, value: string }) { return <div className="flex items-start gap-2 text-sm"><Icon className="mt-0.5 size-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">{label}</p><p>{value}</p></div></div> }
-function AiCard({ incident }: { incident: Incident }) { const [show, setShow] = React.useState(false); const suggestion = `El caso parece relacionado con ${incident.category.toLowerCase()}. Revisa primero accesibilidad del servicio, permisos del usuario y eventos recientes. Si el problema persiste, escala al equipo de ${incident.department}.`; return <Card><CardHeader><CardTitle className="flex items-center gap-2 text-base"><Sparkles className="size-4" />SIGIA AI</CardTitle></CardHeader><CardContent className="space-y-3 text-sm"><p className="text-muted-foreground">Análisis asistido basado en reglas locales de demostración.</p><Button variant="outline" className="w-full" onClick={() => setShow(true)}><Sparkles data-icon="inline-start" />Analizar caso</Button>{show && <div className="rounded-lg bg-muted p-3"><p className="font-medium">Sugerencia</p><p className="mt-1 text-muted-foreground">{suggestion}</p><p className="mt-3 text-xs">Confianza estimada: 90%</p></div>}</CardContent></Card> }
+function AiCard({ incident }: { incident: Incident }) { const [show, setShow] = React.useState(false); const suggestion = `El caso parece relacionado con ${incident.category.toLowerCase()}. Revisa primero accesibilidad del servicio, permisos del usuario y eventos recientes. Si el problema persiste, escala al equipo de ${incident.department}.`; return <Card><CardHeader><CardTitle className="flex items-center gap-2 text-base"><Sparkles className="size-4" />SIG-IA</CardTitle></CardHeader><CardContent className="space-y-3 text-sm"><p className="text-muted-foreground">Análisis asistido basado en reglas locales de demostración.</p><Button variant="outline" className="w-full" onClick={() => setShow(true)}><Sparkles data-icon="inline-start" />Analizar caso</Button>{show && <div className="rounded-lg bg-muted p-3"><p className="font-medium">Sugerencia</p><p className="mt-1 text-muted-foreground">{suggestion}</p><p className="mt-3 text-xs">Confianza estimada: 90%</p></div>}</CardContent></Card> }
